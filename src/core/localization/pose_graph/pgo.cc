@@ -2,6 +2,7 @@
 #include "pgo_impl.h"
 
 #include <boost/format.hpp>
+#include <cmath>
 
 #include <glog/logging.h>
 
@@ -25,10 +26,39 @@ void PGO::SetHighFrequencyGlobalOutputHandleFunction(PGO::GlobalOutputHandleFunc
     high_freq_output_func_ = std::move(handle);
 }
 
-void PGO::PubResult() {
-    // 在有需要时，高频外推然后向外发送数据
-    if (high_freq_output_func_ && impl_->result_.valid_) {
-        // 检查激光定位分值情况
+void PGO::PubResult(const NavState& lio_result) {
+    if (!high_freq_output_func_) {
+        return;
+    }
+
+    auto result = is_parking_ ? parking_result_ : impl_->result_;
+    if (!result.valid_ || !std::isfinite(result.timestamp_) || result.timestamp_ > lio_result.timestamp_) {
+        return;
+    }
+
+    if (!is_parking_) {
+        const auto& lo_queue = impl_->lidar_odom_pose_queue_;
+        if (lo_queue.empty() || result.timestamp_ < lo_queue.front().timestamp_ ||
+            result.timestamp_ > lo_queue.back().timestamp_) {
+            return;
+        }
+
+        // 只在队列覆盖范围内插值，不使用PoseInterp的越界外推。
+        SE3 lio_anchor;
+        NavState best_match;
+        if (result.timestamp_ == lo_queue.front().timestamp_) {
+            lio_anchor = lo_queue.front().GetPose();
+        } else if (result.timestamp_ == lo_queue.back().timestamp_) {
+            lio_anchor = lo_queue.back().GetPose();
+        } else if (!math::PoseInterp<NavState>(
+                       result.timestamp_, lo_queue, [](const NavState& state) { return state.timestamp_; },
+                       [](const NavState& state) { return state.GetPose(); }, lio_anchor, best_match)) {
+            return;
+        }
+
+        // 保留PGO优化结果作为基准，发布结果不能写回impl_->result_。
+        result.pose_ = result.pose_ * lio_anchor.inverse() * lio_result.GetPose();
+
         if (last_lidar_loc_time_ > 0 && impl_->result_.timestamp_ > last_lidar_loc_time_) {
             if (impl_->result_.confidence_ < lidar_loc_score_thd_) {
                 localization_unusual_count_++;
@@ -38,105 +68,17 @@ void PGO::PubResult() {
                 localization_unusual_count_ = 0;
             }
         }
-
         last_lidar_loc_time_ = impl_->result_.timestamp_;
+        localization_unusual_tag_ =
+            localization_unusual_count_ > localization_unusual_thd_ && last_lidar_loc_time_ > 0;
+    }
 
-        if (localization_unusual_count_ > localization_unusual_thd_ && last_lidar_loc_time_ > 0) {
-            localization_unusual_tag_ = true;
-            // LOG(INFO) << "连续多次匹配分值过低, 需检查定位精度";
-        } else {
-            localization_unusual_tag_ = false;
-        }
-
-        auto result = impl_->result_;
-        ExtrapolateLocResult(result);
-        double dt = result.timestamp_ - impl_->result_.timestamp_;
-
-        bool extrap_success = true;
-
-        /// 利用激光定位的外推结果校验DR外推
-        if (impl_->lidar_loc_pose_queue_.size() > 5 && impl_->result_.lidar_loc_smooth_flag_ &&
-            (result.timestamp_ - impl_->lidar_loc_pose_queue_.back().timestamp_) < 0.3) {
-            SE3 recent_lidar_loc_pose = impl_->lidar_loc_pose_queue_.back().pose_;
-            /// 要求激光pose队列有效，且激光定位自身满足平滑性要求
-
-            SE3 lidar_loc_extrap_pose;  // 外推之后的激光定位位姿
-            TimedPose best_match;
-            bool interp_succ = math::PoseInterp<TimedPose>(
-                result.timestamp_, impl_->lidar_loc_pose_queue_, [](const TimedPose& tp) { return tp.timestamp_; },
-                [](const TimedPose& tp) { return tp.pose_; }, lidar_loc_extrap_pose, best_match, 1.0);
-
-            if (interp_succ) {
-                /// 检查激光定位外推结果与DR外推的差异
-
-                /// 条件1. 从激光定位指向外推结果的矢量方向 不应该与激光定位自身外推方向相差太多
-                // Vec3d v1 = result.pose_.translation() - recent_lidar_loc_pose.translation();
-                // Vec3d v2 = lidar_loc_extrap_pose.translation() - recent_lidar_loc_pose.translation();
-                // if (v1.norm() > 0.1 && v2.norm() > 0.1) {
-                //     v1.normalize();
-                //     v2.normalize();
-                //     const double theta_th = std::cos(15 * M_PI / 180.0);  // 角度阈值
-                //     if (v1.dot(v2) <= theta_th) {
-                //         /// 外推检查不通过
-                //         LOG(WARNING) << "外推检查不通过：" << result.pose_.translation().transpose() << ", "
-                //                      << lidar_loc_extrap_pose.translation().transpose() << ", dv: " << v1.dot(v2);
-                //         extrap_success = false;
-                //         result.pose_ = lidar_loc_extrap_pose;
-                //     }
-                // }
-
-                // SE3 delta = result.pose_.inverse() * lidar_loc_extrap_pose;
-                // if (fabs(delta.translation()[0]) > 0.5 || fabs(delta.translation()[1]) > 0.5 ||
-                //     delta.so3().log().norm() > 2.0 * M_PI / 180.0) {
-                //     /// 外推检查不通过
-                //     LOG(WARNING) << "外推检查不通过：" << result.pose_.translation().transpose() << ", "
-                //                  << lidar_loc_extrap_pose.translation().transpose()
-                //                  << ", ang: " << delta.so3().log().norm();
-                //     extrap_success = false;
-                //     result.pose_ = lidar_loc_extrap_pose;
-                // }
-            }
-        }
-
-        if (!impl_->dr_pose_queue_.empty()) {
-            smoother_->PushDRPose(impl_->dr_pose_queue_.back().GetPose());
-        }
-
-        impl_->result_.timestamp_ = result.timestamp_;
-        impl_->result_.pose_ = result.pose_;
-
-        SE3 extra_pose = result.pose_;
-        smoother_->PushPose(result.pose_);
-        result.pose_ = smoother_->GetPose();
-
-        // 输出force 2d
-        // common::PoseRPY RPYXYZ = common::math::SE3ToRollPitchYaw(smoother_->GetPose());
-        // RPYXYZ.roll = 0;
-        // RPYXYZ.pitch = 0;
-        // RPYXYZ.z = 0;
-        // result.pose_ = common::math::XYZRPYToSE3(RPYXYZ);
-
-        high_freq_output_func_(result);
-
-        impl_->output_pose_queue_.emplace_back(result.timestamp_, result.pose_);
-        while (impl_->output_pose_queue_.size() > 1000) {
-            impl_->output_pose_queue_.pop_front();
-        }
-
-        // LOG_EVERY_N(INFO, 10) << std::fixed << "extrap: " << extra_pose.translation().transpose()
-        //                       << ", smoother: " << result.pose_.translation().transpose() << ", dt: " << dt << ", t:
-        //                       " << std::setprecision(12) << result.timestamp_;
-
-        if (!extrap_success) {
-            /// 外推失效，那么认为DR queue外推失效，清空DR队列
-            impl_->dr_pose_queue_.clear();
-
-            /// 同时清空final_output_pose，因为长时间依靠final output可能会导致发散
-            /// 所以当外推失效时，下个时刻就是激光定位+LO的pose。如果LO也失效，那就直接是激光定位的Pose
-            /// final_output_pose_.clear();
-        }
-
-        return;
+    // 停车时保持缓存位姿，但也只在LIO更新时发布。
+    result.timestamp_ = lio_result.timestamp_;
+    high_freq_output_func_(result);
+    impl_->output_pose_queue_.emplace_back(result.timestamp_, result.pose_);
+    while (impl_->output_pose_queue_.size() > 1000) {
+        impl_->output_pose_queue_.pop_front();
     }
 }
 
@@ -165,23 +107,24 @@ bool PGO::ProcessDR(const NavState& dr_result) {
     while (impl_->dr_pose_queue_.size() >= pgo::PGO_MAX_SIZE_OF_RELATIVE_POSE_QUEUE) {
         impl_->dr_pose_queue_.pop_front();
     }
-    if (!impl_->dr_pose_queue_.empty() && !is_parking_) {
-        PubResult();
-    } else if (is_parking_ && high_freq_output_func_) {
-        parking_result_.timestamp_ = dr_result.timestamp_;
-        high_freq_output_func_(parking_result_);
-    }
 
     return true;
 }
 
 bool PGO::ProcessLidarOdom(const NavState& lio_result) {
     UL lock(impl_->data_mutex_);
+    if (!std::isfinite(lio_result.timestamp_) || !lio_result.pose_is_ok_) {
+        return false;
+    }
     /// 假定LidarOdom定位是按时间顺序到达的
     if (!impl_->lidar_odom_pose_queue_.empty()) {
         const double last_stamp = impl_->lidar_odom_pose_queue_.back().timestamp_;
         if (lio_result.timestamp_ < last_stamp) {
             LOG(WARNING) << "当前LidarOdom定位时间戳回退，实际相减得" << lio_result.timestamp_ - last_stamp;
+            return false;
+        }
+        if (lio_result.timestamp_ == last_stamp) {
+            return false;
         }
     }
 
@@ -209,14 +152,8 @@ bool PGO::ProcessLidarOdom(const NavState& lio_result) {
         }
     }
 
-    /// 如果LO的时间比DR更新，则发布LO的递推结果
-    if (!impl_->dr_pose_queue_.empty() && lio_result.timestamp_ >= impl_->dr_pose_queue_.back().timestamp_ &&
-        !is_parking_) {
-        PubResult();
-    } else if (is_parking_ && high_freq_output_func_) {
-        parking_result_.timestamp_ = lio_result.timestamp_;
-        high_freq_output_func_(parking_result_);
-    }
+    // TF/里程计只随成功更新的LIO帧发布。
+    PubResult(lio_result);
 
     return true;
 }
@@ -224,9 +161,8 @@ bool PGO::ProcessLidarOdom(const NavState& lio_result) {
 bool PGO::ProcessLidarLoc(const LocalizationResult& loc_result) {
     UL lock(impl_->data_mutex_);
     is_parking_ = loc_result.is_parking_;
-    if (is_parking_ && high_freq_output_func_) {
+    if (is_parking_) {
         parking_result_ = loc_result;
-        high_freq_output_func_(loc_result);
         return true;
     }
 
@@ -241,17 +177,16 @@ bool PGO::ProcessLidarLoc(const LocalizationResult& loc_result) {
     }
 
     // 不允许时间回退
-    static double last_lidar_loc_timestamp = -1;
-    double lidar_loc_delta_t = loc_result.timestamp_ - last_lidar_loc_timestamp;
-    if (last_lidar_loc_timestamp > 0) {
+    double lidar_loc_delta_t = loc_result.timestamp_ - last_lidar_loc_timestamp_;
+    if (last_lidar_loc_timestamp_ > 0) {
         if (lidar_loc_delta_t < 0) {
             LOG(ERROR) << "lidar loc 时间回退: " << lidar_loc_delta_t;
             return false;
         } else {
-            last_lidar_loc_timestamp = loc_result.timestamp_;
+            last_lidar_loc_timestamp_ = loc_result.timestamp_;
         }
     } else {
-        last_lidar_loc_timestamp = loc_result.timestamp_;
+        last_lidar_loc_timestamp_ = loc_result.timestamp_;
     }
 
     // 增加一个PGO Frame并触发一次PGO
@@ -303,10 +238,6 @@ bool PGO::ProcessPGOFrame(std::shared_ptr<PGOFrame> frame) {
         impl_->lidar_loc_pose_queue_.pop_front();
     }
 
-    if (!impl_->dr_pose_queue_.empty() && frame->timestamp_ >= impl_->dr_pose_queue_.back().timestamp_) {
-        PubResult();
-    }
-
     return true;
 }
 
@@ -315,6 +246,18 @@ std::shared_ptr<PGOFrame> PGO::GetCurrentPGOFrame() const { return impl_->curren
 bool PGO::Reset() {
     UL lock(impl_->data_mutex_);
     smoother_->Reset();
+    impl_->result_ = LocalizationResult{};
+    impl_->lidar_odom_pose_queue_.clear();
+    impl_->dr_pose_queue_.clear();
+    impl_->lidar_loc_pose_queue_.clear();
+    impl_->output_pose_queue_.clear();
+    parking_result_ = LocalizationResult{};
+    is_parking_ = false;
+    last_lidar_loc_time_ = 0.;
+    last_lidar_loc_timestamp_ = -1.;
+    localization_unusual_count_ = 0;
+    localization_unusual_tag_ = false;
+    imu_interruption_tag_ = false;
     return impl_->Reset();
 }
 

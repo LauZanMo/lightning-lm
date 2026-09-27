@@ -20,7 +20,7 @@ namespace lightning::loc {
  * -- LiDAR Loc，频率可能也不高，可动态配置
  *
  * 输出：
- * -- 融合定位结果，与IMU同频率发布
+ * -- 融合定位结果，仅在LIO更新时发布
  * -- 判断各个信息源的outlier，并剔除之
  * -- 盲走一段时间误差控制在容许范围内
  *
@@ -58,8 +58,8 @@ class PGO {
     /// 重置PGO
     bool Reset();
 
-    /// 向外发布位姿
-    void PubResult();
+    /// 用LIO增量将PGO结果推进到当前雷达时刻（调用方持有data_mutex_）
+    void PubResult(const NavState& lio_result);
 
     /// debug stuffs
     void SetDebug(bool debug = true);
@@ -100,6 +100,7 @@ class PGO {
     int localization_unusual_thd_ = 10;      // 激光定位失效次数阈值
     int localization_unusual_count_ = 0;     // 定位异常次数
     double last_lidar_loc_time_ = 0.;        // 上次激光定位时间戳
+    double last_lidar_loc_timestamp_ = -1.;  // 上次收到的非停车定位时间戳
     bool is_parking_ = false;
 };
 

@@ -82,7 +82,7 @@ loop_closing:
 lidar_loc:
   enable_dynamic_polygon: false
   enable_parking_static: true
-  enable_icp_adjust: false
+  enable_icp_adjust: true
   filter_intensity_max: 100.0
   filter_intensity_min: 10.0
   filter_z_max: 30.0
