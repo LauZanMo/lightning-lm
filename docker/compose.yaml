@@ -17,12 +17,6 @@ services:
     image: lightning-lm:dev
     <<: *host-runtime
     working_dir: /root/slam_ws/src/lightning-lm
-    command:
-      - bash
-      - -c
-      - |
-        source /root/slam_ws/install/setup.bash
-        exec ros2 run lightning run_loc_online --config ./config/f400.yaml
     environment:
       <<: *ros2-env
       DISPLAY: ":0"
@@ -31,3 +25,23 @@ services:
       - "../../..:/root/slam_ws"
       - *cyclonedds-default-mount
       - "/tmp/.X11-unix:/tmp/.X11-unix:ro"
+    command:
+      - bash
+      - -c
+      - |
+        source /root/slam_ws/install/setup.bash
+        exec ros2 run lightning run_loc_online --config ./config/f400.yaml
+
+  foxglove-bridge:
+    image: lightning-lm:dev
+    <<: *host-runtime
+    environment:
+      <<: *ros2-env
+    volumes:
+      - *cyclonedds-default-mount
+    command:
+      - bash
+      - -c
+      - |
+        source /opt/ros/humble/setup.bash
+        ros2 launch foxglove_bridge foxglove_bridge_launch.xml address:=0.0.0.0 port:=8765
