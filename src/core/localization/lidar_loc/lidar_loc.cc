@@ -407,6 +407,11 @@ bool LidarLoc::UpdateGlobalMap() {
         pcl_icp_ = icp;
     }
 
+    lock.unlock();
+    if (map_callback_) {
+        map_callback_(map_->GetAllMap());
+    }
+
     return true;
 }
 

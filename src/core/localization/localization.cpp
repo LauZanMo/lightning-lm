@@ -3,6 +3,7 @@
 
 #include "core/localization/lidar_loc/lidar_loc.h"
 #include "core/localization/localization.h"
+#include "core/lightning_math.hpp"
 
 #include <opencv2/highgui.hpp>
 
@@ -54,6 +55,7 @@ bool Localization::Init(const std::string& yaml_path, const std::string& global_
         // lio_->SetUI(ui_);
     }
 
+    lidar_loc_->SetMapCallback(map_callback_);
     lidar_loc_->Init(yaml_path);
 
     /// pose graph
@@ -232,9 +234,19 @@ void Localization::LidarOdomProcCloud(CloudPtr cloud) {
 }
 
 void Localization::LidarLocProcCloud(CloudPtr scan_undist) {
-    lidar_loc_->ProcessCloud(scan_undist);
+    const bool processed = lidar_loc_->ProcessCloud(scan_undist);
 
     auto res = lidar_loc_->GetLocalizationResult();
+    if (processed && res.lidar_loc_valid_ && pointcloud_world_callback_) {
+        PointCloudType world;
+        pcl::transformPointCloud(*scan_undist, world, res.pose_.matrix().cast<float>());
+
+        sensor_msgs::msg::PointCloud2 msg;
+        pcl::toROSMsg(world, msg);
+        msg.header.frame_id = "map";
+        msg.header.stamp = math::FromSec(res.timestamp_);
+        pointcloud_world_callback_(msg);
+    }
     pgo_->ProcessLidarLoc(res);
 
     if (ui_) {

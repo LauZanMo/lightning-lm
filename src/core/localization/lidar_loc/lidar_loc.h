@@ -3,6 +3,7 @@
 #include <pcl/registration/icp.h>
 #include <chrono>
 #include <deque>
+#include <functional>
 #include <iostream>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <thread>
@@ -120,6 +121,10 @@ class LidarLoc {
     /// 设置UI
     void SetUI(std::shared_ptr<ui::PangolinWindow> ui) { ui_ = ui; }
 
+    using MapCallback = std::function<void(const CloudPtr&)>;
+
+    void SetMapCallback(const MapCallback& callback) { map_callback_ = callback; }
+
     /// 设置init pose
     void SetInitialPose(SE3 init_pose);
 
@@ -135,6 +140,7 @@ class LidarLoc {
     bool LidarLocThinkLOReliable() { return lo_reliable_; }
 
    private:
+    MapCallback map_callback_;
     // 内部函数  ==========================================================================
     /**
      * 对点云进行配准

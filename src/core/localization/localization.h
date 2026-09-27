@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include "std_msgs/msg/int32.hpp"
 
@@ -83,7 +85,13 @@ class Localization {
     void SetTFCallback(TFCallback&& callback);
 
     // void SetPathCallback(std::function<void(const nav_msgs::msg::Path& path)>&& callback);
-    // void SetPointcloudWorldCallback(std::function<void(const sensor_msgs::msg::PointCloud2& pointcloud)>&& callback);
+    void SetPointcloudWorldCallback(const PointcloudWorldCallback& callback) {
+        pointcloud_world_callback_ = callback;
+    }
+
+    using MapCallback = std::function<void(const CloudPtr&)>;
+
+    void SetMapCallback(const MapCallback& callback) { map_callback_ = callback; }
     // void SetPointcloudBodyCallback(std::function<void(const sensor_msgs::msg::PointCloud2& pointcloud)>&& callback);
     // void SetLocStateCallback(std::function<void(const std_msgs::msg::Int32& state)>&& callback);
     // void SetHealthDiagNormalCallback(interface::health_diag_normal_callback&& callback);
@@ -121,6 +129,7 @@ class Localization {
     LocStateCallback loc_state_callback_;
     PointcloudBodyCallback pointcloud_body_callback_;
     PointcloudWorldCallback pointcloud_world_callback_;
+    MapCallback map_callback_;
 
     /// 输入检查
     double last_imu_time_ = 0;
