@@ -6,6 +6,9 @@ import numpy as np
 from pypcd4 import Encoding, PointCloud
 
 
+VOXEL_SIZE = 0.2  # 米，必须大于 0
+
+
 def read_map(path):
     if path.suffix.lower() == ".las":
         cloud = laspy.read(path)
@@ -36,6 +39,16 @@ def read_map(path):
         }
 
     raise ValueError("仅支持 LAS 和 PCD")
+
+
+def voxel_filter(fields):
+    xyz = np.column_stack(
+        (fields["x"], fields["y"], fields["z"])
+    ).astype(np.float64)
+    grid = np.floor(xyz / VOXEL_SIZE).astype(np.int64)
+    _, indices = np.unique(grid, axis=0, return_index=True)
+    indices = np.sort(indices)
+    return {name: values[indices] for name, values in fields.items()}
 
 
 def transform_map(fields):
@@ -80,6 +93,7 @@ def save_tile_map(fields, directory):
 def main():
     src, dst = map(Path, sys.argv[1:])
     fields = read_map(src)
+    fields = voxel_filter(fields)
     fields = transform_map(fields)
     save_tile_map(fields, dst)
     print(dst)
