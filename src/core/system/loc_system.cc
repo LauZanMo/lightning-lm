@@ -90,7 +90,7 @@ bool LocSystem::Init(const std::string &yaml_path) {
     loc_->SetMapCallback([this, leaf](const CloudPtr &cloud) {
         sensor_msgs::msg::PointCloud2 msg;
         pcl::toROSMsg(*math::VoxelGrid(cloud, leaf), msg);
-        msg.header.frame_id = "map";
+        msg.header.frame_id = "lm_map";
         msg.header.stamp = node_->now();
         map_pub_->publish(msg);
     });

@@ -1,0 +1,96 @@
+{
+  "configById": {
+    "3D!27iko95": {
+      "cameraState": {
+        "perspective": true,
+        "distance": 13.268408625722047,
+        "phi": 70.68371437308727,
+        "thetaOffset": -42.35131848216433,
+        "targetOffset": [
+          0.8635034259072601,
+          0.7078738012802136,
+          -0.36556841453321154
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {
+        "transforms": {
+          "axisSize": 0.7
+        }
+      },
+      "transforms": {},
+      "topics": {
+        "/lightning/cloud": {
+          "visible": true,
+          "colorField": "intensity",
+          "colorMode": "colormap",
+          "colorMap": "turbo",
+          "flatColor": "#d2db7fff",
+          "pointSize": 1
+        },
+        "/lightning/map": {
+          "visible": true,
+          "colorField": "intensity",
+          "colorMode": "flat",
+          "colorMap": "turbo",
+          "flatColor": "#8d8d8dff",
+          "pointSize": 3
+        }
+      },
+      "layers": {
+        "grid": {
+          "visible": true,
+          "drawBehind": false,
+          "instanceId": "794c4f96-1506-4f6b-b734-d3deffa7d97f",
+          "layerId": "foxglove.Grid",
+          "size": 10,
+          "divisions": 10,
+          "lineWidth": 1,
+          "color": "#248eff",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "synchronize": false,
+      "imageMode": {},
+      "followTf": "lm_map"
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "layout": "3D!27iko95"
+}

@@ -243,7 +243,7 @@ void Localization::LidarLocProcCloud(CloudPtr scan_undist) {
 
         sensor_msgs::msg::PointCloud2 msg;
         pcl::toROSMsg(world, msg);
-        msg.header.frame_id = "map";
+        msg.header.frame_id = "lm_map";
         msg.header.stamp = math::FromSec(res.timestamp_);
         pointcloud_world_callback_(msg);
     }
