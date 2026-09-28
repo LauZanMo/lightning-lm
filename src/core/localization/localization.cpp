@@ -191,6 +191,17 @@ void Localization::LidarOdomProcCloud(CloudPtr cloud) {
     lidar_loc_->ProcessLO(lo_state);
     pgo_->ProcessLidarOdom(lo_state);
 
+    if (loc_result_.valid_ && loc_result_.timestamp_ == lo_state.timestamp_ && pointcloud_world_callback_) {
+        PointCloudType world;
+        pcl::transformPointCloud(*lio_->GetScanUndist(), world, loc_result_.pose_.matrix().cast<float>());
+
+        sensor_msgs::msg::PointCloud2 msg;
+        pcl::toROSMsg(world, msg);
+        msg.header.frame_id = "lm_map";
+        msg.header.stamp = math::FromSec(loc_result_.timestamp_);
+        pointcloud_world_callback_(msg);
+    }
+
     // LOG(INFO) << "LO pose: " << std::setprecision(12) << lo_state.timestamp_ << " "
     //           << lo_state.GetPose().translation().transpose();
 
@@ -234,19 +245,9 @@ void Localization::LidarOdomProcCloud(CloudPtr cloud) {
 }
 
 void Localization::LidarLocProcCloud(CloudPtr scan_undist) {
-    const bool processed = lidar_loc_->ProcessCloud(scan_undist);
+    lidar_loc_->ProcessCloud(scan_undist);
 
     auto res = lidar_loc_->GetLocalizationResult();
-    if (processed && res.lidar_loc_valid_ && pointcloud_world_callback_) {
-        PointCloudType world;
-        pcl::transformPointCloud(*scan_undist, world, res.pose_.matrix().cast<float>());
-
-        sensor_msgs::msg::PointCloud2 msg;
-        pcl::toROSMsg(world, msg);
-        msg.header.frame_id = "lm_map";
-        msg.header.stamp = math::FromSec(res.timestamp_);
-        pointcloud_world_callback_(msg);
-    }
     pgo_->ProcessLidarLoc(res);
 
     if (ui_) {
