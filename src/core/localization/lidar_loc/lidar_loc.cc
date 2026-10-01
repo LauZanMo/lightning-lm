@@ -633,7 +633,7 @@ void LidarLoc::Align(const CloudPtr& input) {
 
     // 用纯激光定位有点太抖了，加一些权重
     Vec6d delta = (guess_from_lo.inverse() * current_pose_esti).log();
-    SE3 esti_balanced = guess_from_lo * SE3::exp(delta * 0.5);
+    SE3 esti_balanced = guess_from_lo * SE3::exp(delta * 0.3);
     current_pose_esti = esti_balanced;
 
     // double score_self = 0;
@@ -862,7 +862,7 @@ bool LidarLoc::Localize(SE3& pose, double& confidence, CloudPtr input, CloudPtr 
         CloudPtr input_voxel(new PointCloudType);
         pcl::VoxelGrid<PointType> voxel_icp;
 
-        double ls = 0.2;
+        double ls = 0.1;
         voxel_icp.setLeafSize(ls, ls, ls);
         voxel_icp.setInputCloud(input);
         voxel_icp.filter(*input_voxel);
