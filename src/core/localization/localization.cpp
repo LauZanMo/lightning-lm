@@ -207,7 +207,7 @@ void Localization::LidarOdomProcCloud(CloudPtr cloud) {
 
     /// 获得lio的关键帧
 
-    auto scan = lio_->GetProjCloud();
+    auto scan = lio_->GetScanUndist();
 
     if (options_.loc_on_kf_) {
         auto kf = lio_->GetKeyframe();
