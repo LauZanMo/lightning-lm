@@ -397,7 +397,7 @@ bool LidarLoc::UpdateGlobalMap() {
         ICPType::Ptr icp(new ICPType());
         CloudPtr map_cloud(new PointCloudType);
         pcl::VoxelGrid<PointType> voxel;
-        auto sz = 0.2;
+        auto sz = 0.1;
         voxel.setLeafSize(sz, sz, sz);
         voxel.setInputCloud(map_->GetAllMap());
         voxel.filter(*map_cloud);
