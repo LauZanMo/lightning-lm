@@ -370,7 +370,7 @@ bool LidarLoc::UpdateGlobalMap() {
     ndt->setResolution(1.0);
     ndt->setNeighborhoodSearchMethod(pclomp::DIRECT7);
     ndt->setStepSize(0.1);
-    ndt->setMaximumIterations(4);
+    ndt->setMaximumIterations(6);
     ndt->setNumThreads(4);
 
     map_->SetNewTargetForNDT(ndt);
@@ -397,7 +397,7 @@ bool LidarLoc::UpdateGlobalMap() {
         ICPType::Ptr icp(new ICPType());
         CloudPtr map_cloud(new PointCloudType);
         pcl::VoxelGrid<PointType> voxel;
-        auto sz = 0.5;
+        auto sz = 0.2;
         voxel.setLeafSize(sz, sz, sz);
         voxel.setInputCloud(map_->GetAllMap());
         voxel.filter(*map_cloud);
@@ -633,7 +633,7 @@ void LidarLoc::Align(const CloudPtr& input) {
 
     // 用纯激光定位有点太抖了，加一些权重
     Vec6d delta = (guess_from_lo.inverse() * current_pose_esti).log();
-    SE3 esti_balanced = guess_from_lo * SE3::exp(delta * 0.1);
+    SE3 esti_balanced = guess_from_lo * SE3::exp(delta * 0.5);
     current_pose_esti = esti_balanced;
 
     // double score_self = 0;
