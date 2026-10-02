@@ -76,6 +76,7 @@ bool LidarLoc::Init(const std::string& config_path) {
     options_.init_with_fp_ = yaml.GetValue<bool>("lidar_loc", "init_with_fp");
     options_.enable_parking_static_ = yaml.GetValue<bool>("lidar_loc", "enable_parking_static");
     options_.enable_icp_adjust_ = yaml.GetValue<bool>("lidar_loc", "enable_icp_adjust");
+    options_.icp_leaf_size_ = yaml.GetValue<double>("lidar_loc", "icp_leaf_size");
     options_.with_height_ = yaml.GetValue<bool>("loop_closing", "with_height");
     options_.try_self_extrap_ = yaml.GetValue<bool>("lidar_loc", "try_self_extrap");
 
@@ -397,7 +398,7 @@ bool LidarLoc::UpdateGlobalMap() {
         ICPType::Ptr icp(new ICPType());
         CloudPtr map_cloud(new PointCloudType);
         pcl::VoxelGrid<PointType> voxel;
-        auto sz = 0.1;
+        auto sz = options_.icp_leaf_size_;
         voxel.setLeafSize(sz, sz, sz);
         voxel.setInputCloud(map_->GetAllMap());
         voxel.filter(*map_cloud);
@@ -850,10 +851,10 @@ bool LidarLoc::Localize(SE3& pose, double& confidence, CloudPtr input, CloudPtr 
     trans = ndt->getFinalTransformation();
     confidence = ndt->getTransformationProbability();
 
-    auto tgt = ndt->getInputTarget();
-    if (!tgt->empty()) {
-        pcl::io::savePCDFile("./data/tgt.pcd", *tgt);
-    }
+    // auto tgt = ndt->getInputTarget();
+    // if (!tgt->empty()) {
+    //     pcl::io::savePCDFile("./data/tgt.pcd", *tgt);
+    // }
 
     loc_success = loc_inited_ || confidence >= options_.min_init_confidence_;
 
@@ -862,7 +863,7 @@ bool LidarLoc::Localize(SE3& pose, double& confidence, CloudPtr input, CloudPtr 
         CloudPtr input_voxel(new PointCloudType);
         pcl::VoxelGrid<PointType> voxel_icp;
 
-        double ls = 0.1;
+        double ls = options_.icp_leaf_size_;
         voxel_icp.setLeafSize(ls, ls, ls);
         voxel_icp.setInputCloud(input);
         voxel_icp.filter(*input_voxel);

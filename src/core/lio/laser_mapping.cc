@@ -47,6 +47,7 @@ bool LaserMapping::LoadParamsFromYAML(const std::string &yaml_file) {
         fasterlio::ESTI_PLANE_THRESHOLD = yaml["fasterlio"]["esti_plane_threshold"].as<float>();
 
         filter_size_scan = yaml["fasterlio"]["filter_size_scan"].as<float>();
+        filter_size_scan_fallback_ = yaml["fasterlio"]["filter_size_scan_fallback"].as<float>();
         filter_size_map_min_ = yaml["fasterlio"]["filter_size_map"].as<float>();
         keep_first_imu_estimation_ = yaml["fasterlio"]["keep_first_imu_estimation"].as<bool>();
         gyr_cov = yaml["fasterlio"]["gyr_cov"].as<float>();
@@ -235,10 +236,8 @@ bool LaserMapping::Run() {
     int cur_pts = scan_down_body_->size();
 
     if (cur_pts < (scan_undistort_->size() * 0.1) || cur_pts < options_.min_pts) {
-        /// 降采样太狠了,有效点数不够，用0.1分辨率代替
-        // LOG(INFO) << "too few points, using 0.1 resol";
         auto v = voxel_scan_;
-        v.setLeafSize(0.1, 0.1, 0.1);
+        v.setLeafSize(filter_size_scan_fallback_, filter_size_scan_fallback_, filter_size_scan_fallback_);
         v.setInputCloud(scan_undistort_);
         v.filter(*scan_down_body_);
 

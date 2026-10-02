@@ -153,6 +153,7 @@ class LaserMapping {
 
     /// local map related
     double filter_size_map_min_ = 0;
+    double filter_size_scan_fallback_ = 0.1;
 
     /// params
     std::vector<double> extrinT_{3, 0.0};  // lidar-imu translation
