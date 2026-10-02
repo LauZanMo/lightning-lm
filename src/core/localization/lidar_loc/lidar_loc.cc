@@ -372,7 +372,7 @@ bool LidarLoc::UpdateGlobalMap() {
     ndt->setResolution(1.0);
     ndt->setNeighborhoodSearchMethod(pclomp::DIRECT7);
     ndt->setStepSize(0.1);
-    ndt->setMaximumIterations(6);
+    ndt->setMaximumIterations(4);
     ndt->setNumThreads(4);
 
     map_->SetNewTargetForNDT(ndt);

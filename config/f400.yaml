@@ -20,10 +20,10 @@ fasterlio:
   filter_size_scan_fallback: 0.15
 
   ivox_grid_resolution: 0.5        # default=0.2
-  ivox_nearby_type: 6             # 6, 18, 26
+  ivox_nearby_type: 18             # 6, 18, 26
   esti_plane_threshold: 0.1        # default=0.1
 
-  use_aa: true  # use anderson-acceleration
+  use_aa: false  # use anderson-acceleration
 
   acc_cov: 0.1
   gyr_cov: 0.1
@@ -35,8 +35,8 @@ fasterlio:
                  0, 1, 0,
                  0, 0, 1 ]
   keep_first_imu_estimation: false
-  kf_dis_th: 0.2
-  kf_angle_th: 5.0
+  kf_dis_th: 0.5
+  kf_angle_th: 30.0
 
   enable_icp_part: false
   plane_icp_weight: 300.0
