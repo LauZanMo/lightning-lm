@@ -77,6 +77,7 @@ bool LidarLoc::Init(const std::string& config_path) {
     options_.enable_parking_static_ = yaml.GetValue<bool>("lidar_loc", "enable_parking_static");
     options_.enable_icp_adjust_ = yaml.GetValue<bool>("lidar_loc", "enable_icp_adjust");
     options_.icp_leaf_size_ = yaml.GetValue<double>("lidar_loc", "icp_leaf_size");
+    options_.pose_correction_weight_ = yaml.GetValue<double>("lidar_loc", "pose_correction_weight");
     options_.with_height_ = yaml.GetValue<bool>("loop_closing", "with_height");
     options_.try_self_extrap_ = yaml.GetValue<bool>("lidar_loc", "try_self_extrap");
 
@@ -634,7 +635,7 @@ void LidarLoc::Align(const CloudPtr& input) {
 
     // 用纯激光定位有点太抖了，加一些权重
     Vec6d delta = (guess_from_lo.inverse() * current_pose_esti).log();
-    SE3 esti_balanced = guess_from_lo * SE3::exp(delta * 0.3);
+    SE3 esti_balanced = guess_from_lo * SE3::exp(delta * options_.pose_correction_weight_);
     current_pose_esti = esti_balanced;
 
     // double score_self = 0;

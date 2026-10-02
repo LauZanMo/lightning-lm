@@ -82,6 +82,7 @@ lidar_loc:
   enable_parking_static: true
   enable_icp_adjust: false
   icp_leaf_size: 0.1
+  pose_correction_weight: 0.1
   filter_intensity_max: 100.0
   filter_intensity_min: 10.0
   filter_z_max: 30.0

@@ -45,6 +45,7 @@ class LidarLoc {
         bool init_with_fp_ = true;                     // 是否使用功能点进行初始化
         bool enable_parking_static_ = false;           // 是否在静止时输出固定位置
         bool enable_icp_adjust_ = false;               // 是否使用icp调整ndt匹配结果提高定位精度
+        double pose_correction_weight_ = 0.1;
 
         /// 点云过滤
         double icp_leaf_size_ = 0.1;
