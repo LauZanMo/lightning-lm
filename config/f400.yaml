@@ -13,10 +13,11 @@ fasterlio:
   time_scale: 1e-3             # 兼容不同数据集的时间单位，仅对Velodyne LiDAR(lidar_type=2)生效
 
   skip_lidar_num: 0 # 点云的跳帧情况
-  point_filter_num: 1 # 点云采样参数
+  point_filter_num: 4 # 点云采样参数
   max_iteration: 6 # 最大迭代次数
-  filter_size_scan: 0.1 # 对scan进行的降采样
+  filter_size_scan: 0.15 # 对scan进行的降采样
   filter_size_map: 0.1
+  filter_size_scan_fallback: 0.15
 
   ivox_grid_resolution: 0.5        # default=0.2
   ivox_nearby_type: 18             # 6, 18, 26
@@ -34,8 +35,8 @@ fasterlio:
                  0, 1, 0,
                  0, 0, 1 ]
   keep_first_imu_estimation: false
-  kf_dis_th: 0.3
-  kf_angle_th: 10.0
+  kf_dis_th: 0.2
+  kf_angle_th: 5.0
 
   enable_icp_part: false
   plane_icp_weight: 300.0
@@ -55,7 +56,7 @@ g2p5:
 system:
   with_loop_closing: true # 是否需要回环检测
   with_ui: false # 是否需要3D UI
-  map_publish_leaf_size: 0.2
+  map_publish_leaf_size: 0.15
   with_2dui: false # 是否需要2D UI
   with_g2p5: true # 是否需要栅格地图
   step_on_kf: false # 是否在关键帧处暂停
@@ -83,6 +84,7 @@ lidar_loc:
   enable_dynamic_polygon: false
   enable_parking_static: true
   enable_icp_adjust: true
+  icp_leaf_size: 0.15
   filter_intensity_max: 100.0
   filter_intensity_min: 10.0
   filter_z_max: 30.0
@@ -98,7 +100,7 @@ lidar_loc:
   update_err_v: 0.2
   update_kf_dis: 2.0
   update_lidar_loc_score: 2.5
-  loc_on_kf: false
+  loc_on_kf: true
   try_self_extrap: false
 maps:
   delete_when_unload: false
