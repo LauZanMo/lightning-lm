@@ -47,6 +47,7 @@ class LaserMapping {
 
         bool proj_kfs_ = false;
         int max_proj_kfs_ = 5;
+        int proj_kf_point_limit_ = 1000;
     };
 
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -140,7 +141,7 @@ class LaserMapping {
     void MakeKF();
 
     /// 将附近的关键帧投影至cloud中
-    void ProjectKFs(CloudPtr cloud, int size_limit = 1000);
+    void ProjectKFs(CloudPtr cloud, int size_limit);
 
    private:
     Options options_;

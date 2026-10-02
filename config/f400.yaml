@@ -43,6 +43,8 @@ fasterlio:
   min_pts: 500
   imu_filter: false
   proj_kfs: false
+  max_proj_kfs: 4
+  proj_kf_point_limit: 500
 
 
 g2p5:

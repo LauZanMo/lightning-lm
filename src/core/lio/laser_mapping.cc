@@ -84,6 +84,8 @@ bool LaserMapping::LoadParamsFromYAML(const std::string &yaml_file) {
         bool use_imu_filter = yaml["fasterlio"]["imu_filter"].as<bool>();
         p_imu_->SetUseIMUFilter(use_imu_filter);
         options_.proj_kfs_ = yaml["fasterlio"]["proj_kfs"].as<bool>();
+        options_.max_proj_kfs_ = yaml["fasterlio"]["max_proj_kfs"].as<int>(options_.max_proj_kfs_);
+        options_.proj_kf_point_limit_ = yaml["fasterlio"]["proj_kf_point_limit"].as<int>(options_.proj_kf_point_limit_);
 
     } catch (...) {
         LOG(ERROR) << "bad conversion";
@@ -341,6 +343,10 @@ void LaserMapping::ProjectKFs(CloudPtr cloud, int size_limit) {
 
         int cnt = 0;
         for (auto &pt : kf->GetCloud()->points) {
+            if (cnt >= size_limit) {
+                break;
+            }
+
             Vec3d p = pose * ToVec3d(pt);
             PointType pcl_pt;
 
@@ -351,10 +357,6 @@ void LaserMapping::ProjectKFs(CloudPtr cloud, int size_limit) {
 
             cloud->push_back(pcl_pt);
             cnt++;
-
-            if (cnt > size_limit) {
-                break;
-            }
         }
         // }
     }
@@ -868,7 +870,7 @@ CloudPtr LaserMapping::GetRecentCloud() {
 
 CloudPtr LaserMapping::GetProjCloud() {
     auto cloud = scan_undistort_;
-    ProjectKFs(cloud);
+    ProjectKFs(cloud, options_.proj_kf_point_limit_);
     return cloud;
 }
 

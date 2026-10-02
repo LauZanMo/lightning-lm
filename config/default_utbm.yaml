@@ -40,6 +40,8 @@ fasterlio:
   enable_icp_part: true
   kalman_R: 0.1
   min_pts: 300
+  max_proj_kfs: 5
+  proj_kf_point_limit: 500
 
 
 g2p5:
