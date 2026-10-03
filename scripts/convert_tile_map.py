@@ -6,7 +6,8 @@ import numpy as np
 from pypcd4 import Encoding, PointCloud
 
 
-VOXEL_SIZE = 0.2  # 米，必须大于 0
+VOXEL_SIZE = 0.1  # 米，必须大于 0
+UAV_MODE = False  # True：UAV；False：扫描仪
 
 
 def read_map(path):
@@ -53,8 +54,12 @@ def voxel_filter(fields):
 
 def transform_map(fields):
     x, y = fields["x"], fields["y"]
-    fields["x"] = y.astype(np.float32)
-    fields["y"] = (-x).astype(np.float32)
+    if UAV_MODE:
+        fields["x"] = y.astype(np.float32)
+        fields["y"] = (-x).astype(np.float32)
+    else:
+        fields["x"] = x.astype(np.float32)
+        fields["y"] = y.astype(np.float32)
     fields["z"] = fields["z"].astype(np.float32)
 
     count = len(x)
