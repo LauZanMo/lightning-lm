@@ -42,6 +42,9 @@ fasterlio:
   plane_icp_weight: 300.0
   min_pts: 500
   imu_filter: false
+  imu_sample_hz: 200.0
+  imu_gyro_cutoff_hz: 40.0
+  imu_acc_cutoff_hz: 40.0
   proj_kfs: false
   max_proj_kfs: 5
   proj_kf_point_limit: 500

@@ -81,8 +81,12 @@ bool LaserMapping::LoadParamsFromYAML(const std::string &yaml_file) {
         options_.min_pts = yaml["fasterlio"]["min_pts"].as<int>();
         options_.plane_icp_weight_ = yaml["fasterlio"]["plane_icp_weight"].as<float>();
 
-        bool use_imu_filter = yaml["fasterlio"]["imu_filter"].as<bool>();
-        p_imu_->SetUseIMUFilter(use_imu_filter);
+        use_imu_filter_ = yaml["fasterlio"]["imu_filter"].as<bool>();
+        if (use_imu_filter_) {
+            const double sample_hz = yaml["fasterlio"]["imu_sample_hz"].as<double>(200.0);
+            gyro_filter_.Configure(sample_hz, yaml["fasterlio"]["imu_gyro_cutoff_hz"].as<double>(40.0));
+            acc_filter_.Configure(sample_hz, yaml["fasterlio"]["imu_acc_cutoff_hz"].as<double>(40.0));
+        }
         options_.proj_kfs_ = yaml["fasterlio"]["proj_kfs"].as<bool>();
         options_.max_proj_kfs_ = yaml["fasterlio"]["max_proj_kfs"].as<int>(options_.max_proj_kfs_);
         options_.proj_kf_point_limit_ = yaml["fasterlio"]["proj_kf_point_limit"].as<int>(options_.proj_kf_point_limit_);
@@ -152,9 +156,22 @@ void LaserMapping::ProcessIMU(const lightning::IMUPtr &imu) {
         imu_buffer_.clear();
     }
 
+    auto sample = imu;
+    if (use_imu_filter_) {
+        sample = std::make_shared<IMU>(*imu);
+        const double dt = timestamp - last_timestamp_imu_;
+        if (dt <= 0 || dt >= 0.1) {
+            gyro_filter_.Reset(imu->angular_velocity);
+            acc_filter_.Reset(imu->linear_acceleration);
+        }
+        sample->angular_velocity = gyro_filter_.Filter(imu->angular_velocity);
+        sample->linear_acceleration = acc_filter_.Filter(imu->linear_acceleration);
+    }
+
     if (p_imu_->IsIMUInited()) {
         /// 更新最新imu状态
-        kf_imu_.Predict(timestamp - last_timestamp_imu_, p_imu_->Q_, imu->angular_velocity, imu->linear_acceleration);
+        kf_imu_.Predict(timestamp - last_timestamp_imu_, p_imu_->Q_, sample->angular_velocity,
+                       sample->linear_acceleration);
 
         // LOG(INFO) << "newest wrt lidar: " << timestamp - kf_.GetX().timestamp_;
 
@@ -166,7 +183,7 @@ void LaserMapping::ProcessIMU(const lightning::IMUPtr &imu) {
 
     last_timestamp_imu_ = timestamp;
 
-    imu_buffer_.emplace_back(imu);
+    imu_buffer_.emplace_back(sample);
 }
 
 bool LaserMapping::Run() {

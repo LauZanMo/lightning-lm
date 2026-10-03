@@ -15,7 +15,6 @@
 #include "common/measure_group.h"
 #include "common/point_def.h"
 #include "core/lio/eskf.hpp"
-#include "core/lio/imu_filter.h"
 #include "core/lio/pose6d.h"
 #include "utils/timer.h"
 
@@ -39,7 +38,6 @@ class ImuProcess {
     void Process(const MeasureGroup &meas, ESKF &kf_state, CloudPtr &scan);
 
     bool IsIMUInited() const { return imu_need_init_ == false; }
-    void SetUseIMUFilter(bool b) { use_imu_filter_ = b; }
 
     double GetMeanAccNorm() const { return mean_acc_.norm(); }
 
@@ -74,9 +72,6 @@ class ImuProcess {
     int init_iter_num_ = 1;
     bool b_first_frame_ = true;
     bool imu_need_init_ = true;
-
-    bool use_imu_filter_ = true;
-    IMUFilter filter_;
 };
 
 inline ImuProcess::ImuProcess() : b_first_frame_(true), imu_need_init_(true) {
@@ -192,13 +187,6 @@ inline void ImuProcess::UndistortPcl(const MeasureGroup &meas, ESKF &kf_state, C
     double dt = 0;
     Vec3d acc = Vec3d::Zero();
     Vec3d gyro = Vec3d::Zero();
-
-    if (use_imu_filter_) {
-        for (auto &imu : v_imu) {
-            auto imu_f = filter_.Filter(*imu);
-            *imu = imu_f;
-        }
-    }
 
     for (auto it_imu = v_imu.begin(); it_imu < (v_imu.end() - 1); it_imu++) {
         auto &&head = *(it_imu);

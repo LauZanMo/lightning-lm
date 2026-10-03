@@ -12,6 +12,7 @@
 #include "common/options.h"
 #include "core/ivox3d/ivox3d.h"
 #include "core/lio/eskf.hpp"
+#include "core/lio/imu_filter.h"
 #include "core/lio/imu_processing.hpp"
 #include "pointcloud_preprocess.h"
 
@@ -223,6 +224,9 @@ class LaserMapping {
     NavState state_point_;  // ekf current state
 
     bool use_aa_ = false;  // use anderson acceleration?
+    bool use_imu_filter_ = false;
+    LowPass2 gyro_filter_;
+    LowPass2 acc_filter_;
 
     std::list<Keyframe::Ptr> proj_kfs_;  // 投影到当前帧的关键帧
 
