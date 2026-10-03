@@ -629,6 +629,9 @@ void LaserMapping::MapIncremental() {
  * @param ekfom_data H matrix
  */
 void LaserMapping::ObsModel(NavState &s, ESKF::CustomObservationModel &obs) {
+    obs.valid_ = true;
+    obs.lidar_residual_mean_ = 0;
+    obs.lidar_residual_max_ = 0;
     int cnt_pts = scan_down_body_->size();
 
     std::vector<size_t> index(cnt_pts);
@@ -697,21 +700,10 @@ void LaserMapping::ObsModel(NavState &s, ESKF::CustomObservationModel &obs) {
 
             effect_feat_surf_++;
         }
-
-        if (point_selected_icp_[i]) {
-            effect_feat_icp_++;
-        }
     }
 
     corr_pts_.resize(effect_feat_surf_);
     corr_norm_.resize(effect_feat_surf_);
-
-    if (effect_feat_surf_ < 20) {
-        obs.valid_ = false;
-        LOG(WARNING) << "No enough effective surface points: " << effect_feat_surf_ << ", icp: " << effect_feat_icp_
-                     << ", required: " << 20;
-        return;
-    }
 
     index.resize(effect_feat_surf_);
     const Mat3f off_R = offset_R_lidar_fixed_.cast<float>();
@@ -759,19 +751,12 @@ void LaserMapping::ObsModel(NavState &s, ESKF::CustomObservationModel &obs) {
         obs.HTr_ += JTr[i] * options_.plane_icp_weight_;
     }
 
-    if (!res_sq.empty()) {
-        std::sort(res_sq.begin(), res_sq.end());
-        obs.lidar_residual_mean_ = res_sq[res_sq.size() / 2];
-        obs.lidar_residual_max_ = res_sq[res_sq.size() - 1];
-        // LOG(INFO) << "residual mean: " << obs.lidar_residual_mean_ << ", max: " << obs.lidar_residual_max_
-        //           << ", 85%: " << res_sq[res_sq.size() * 0.85];
-    }
-
     /// 点到点ICP部分
 
     if (options_.enable_icp_part_) {
         JTJ.resize(cnt_pts);
         JTr.resize(cnt_pts);
+        std::vector<double> icp_res_sq(cnt_pts);
 
         std::vector<size_t> index(cnt_pts);
         for (size_t i = 0; i < index.size(); ++i) {
@@ -805,6 +790,7 @@ void LaserMapping::ObsModel(NavState &s, ESKF::CustomObservationModel &obs) {
 
             JTJ[i] = J.transpose() * J;
             JTr[i] = -J.transpose() * e;
+            icp_res_sq[i] = e.squaredNorm();
         });
 
         for (int i = 0; i < cnt_pts; ++i) {
@@ -813,8 +799,21 @@ void LaserMapping::ObsModel(NavState &s, ESKF::CustomObservationModel &obs) {
             }
             obs.HTH_ += JTJ[i] * options_.icp_weight_;
             obs.HTr_ += JTr[i] * options_.icp_weight_;
+            effect_feat_icp_++;
+            res_sq.push_back(icp_res_sq[i]);
         }
     }
+
+    if (effect_feat_surf_ < 20 && (!options_.enable_icp_part_ || effect_feat_icp_ < 20)) {
+        obs.valid_ = false;
+        LOG(WARNING) << "Not enough effective constraints, surface: " << effect_feat_surf_
+                     << ", icp: " << effect_feat_icp_ << ", required: " << 20;
+        return;
+    }
+
+    std::sort(res_sq.begin(), res_sq.end());
+    obs.lidar_residual_mean_ = res_sq[res_sq.size() / 2];
+    obs.lidar_residual_max_ = res_sq.back();
 }
 
 ///////////////////////////  private method /////////////////////////////////////////////////////////////////////
